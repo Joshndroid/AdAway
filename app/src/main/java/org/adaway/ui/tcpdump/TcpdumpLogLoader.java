@@ -43,9 +43,9 @@ import java.util.Set;
  */
 class TcpdumpLogLoader extends AsyncTaskLoader<List<String>> {
     /**
-     * The application specific cache directory.
+     * The tcpdump log file.
      */
-    private final File cacheDir;
+    private final File mLogFile;
 
     /**
      * Constructor.
@@ -55,32 +55,32 @@ class TcpdumpLogLoader extends AsyncTaskLoader<List<String>> {
     TcpdumpLogLoader(Context context) {
         super(context);
         // Get application cache directory
-        this.cacheDir = context.getCacheDir();
+        this.mLogFile = TcpdumpUtils.getLogFile(context);
     }
 
     @Override
     public List<String> loadInBackground() {
+        // Check if the log file exists
+        if (!this.mLogFile.exists()) {
+            return Collections.emptyList();
+        }
         // hashset, because every hostname should be contained only once
         Set<String> set = new HashSet<>();
+        // open the file for reading
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(this.mLogFile)))) {
+            // read every line of the file into the line-variable, one line at a time
+            String nextLine;
+            String hostname;
+            while ((nextLine = reader.readLine()) != null) {
+                Log.d(Constants.TAG, "nextLine: " + nextLine);
 
-        try {
-            File file = new File(this.cacheDir, Constants.TCPDUMP_LOG);
-            // open the file for reading
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)))) {
-                // read every line of the file into the line-variable, one line at a time
-                String nextLine;
-                String hostname;
-                while ((nextLine = reader.readLine()) != null) {
-                    Log.d(Constants.TAG, "nextLine: " + nextLine);
-
-                    hostname = RegexUtils.getTcpdumpHostname(nextLine);
-                    if (hostname != null) {
-                        set.add(hostname);
-                    }
+                hostname = RegexUtils.getTcpdumpHostname(nextLine);
+                if (hostname != null) {
+                    set.add(hostname);
                 }
-            } catch (java.io.FileNotFoundException e) {
-                Log.e(Constants.TAG, "Tcpdump log is not existing!", e);
             }
+        } catch (java.io.FileNotFoundException e) {
+            Log.e(Constants.TAG, "Tcpdump log is not existing!", e);
         } catch (IOException e) {
             Log.e(Constants.TAG, "Can not get cache dir", e);
         }
@@ -96,7 +96,6 @@ class TcpdumpLogLoader extends AsyncTaskLoader<List<String>> {
     @Override
     protected void onReset() {
         super.onReset();
-
         // Ensure the loader is stopped
         onStopLoading();
     }
@@ -109,10 +108,5 @@ class TcpdumpLogLoader extends AsyncTaskLoader<List<String>> {
     @Override
     protected void onStopLoading() {
         cancelLoad();
-    }
-
-    @Override
-    public void deliverResult(List<String> data) {
-        super.deliverResult(data);
     }
 }
