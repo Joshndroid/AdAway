@@ -18,11 +18,6 @@
     <string name="button_webserver_toggle_unchecked">Webserver is not running</string>
     <string name="button_webserver_toggle_text">Start or stop webserver on localhost to answer requests to blocked hostnames.</string>
     <string name="button_help">Help</string>
-    <string name="button_tcpdump_text">Tcpdump is a tool to monitor DNS requests and save them in a log file. You can start it in the background, run applications that display ads, and afterwards analyze the DNS requests using the log file. Possible ad server can then be added to your blacklist.</string>
-    <string name="button_tcpdump_toggle_checked">Tcpdump is running!</string>
-    <string name="button_tcpdump_toggle_unchecked">Tcpdump is not running!</string>
-    <string name="button_tcpdump_open">Open log file</string>
-    <string name="button_tcpdump_delete">Delete log file</string>
 
     <!-- Home -->
     <string name="header_help">Welcome!</string>
@@ -39,7 +34,6 @@
     <string name="button_disable_webserver">Disable web server</string>
 
     <!-- Checkbox List -->
-    <string name="checkbox_list_add_dialog_title">Add</string>
     <string name="checkbox_list_empty">Empty list</string>
     <string name="checkbox_list_empty_text">You can add items from the plus button.</string>
     <string name="checkbox_list_context_delete">Delete</string>
@@ -52,9 +46,15 @@
     <string name="lists_tab_whitelist">Whitelist</string>
     <string name="lists_tab_blacklist">Blacklist</string>
     <string name="lists_tab_redirection_list">Redirects</string>
-    <string name="list_dialog_url">URL:</string>
+    <string name="list_add_dialog_black">Add host to blacklist</string>
+    <string name="list_add_dialog_white">Add host to whitelist</string>
+    <string name="list_add_dialog_redirect">Add host redirect</string>
+    <string name="list_edit_dialog_black">Edit blacklist host</string>
+    <string name="list_edit_dialog_white">Edit whitelist host</string>
+    <string name="list_edit_dialog_redirect">Edit redirect</string>
     <string name="list_dialog_hostname">Hostname:</string>
-    <string name="list_dialog_whitelist_hostname">Hostname:\n(Wildcard characters * and ? are allowed!)</string>
+    <string name="list_dialog_hostname_hint">The hosts source URL</string>
+    <string name="list_dialog_wildcard">(Wildcard characters * and ? are allowed)</string>
     <string name="list_dialog_ip">IP (IPv4 or IPv6):</string>
     <string name="import_dialog">Importing…</string>
     <string name="export_dialog">Exporting…</string>
@@ -130,8 +130,6 @@
     <!-- Other Dialogs -->
     <string name="no_root_description">Either the su binary could not be found or you did not allow root permission for AdAway.\n\nThis can happen when your device is not rooted.\nYou can find information about how to root your device on wiki.lineageos.org or other Android websites.</string>
     <string name="no_root_title">Rooted Android required</string>
-    <string name="no_url">This is not a valid URL!</string>
-    <string name="no_url_title">Improperly formatted URL</string>
     <string name="hosts_add_dialog">Input URL to hosts file:</string>
     <string name="no_hostname">This is not a valid hostname!</string>
     <string name="no_hostname_title">Improperly formatted hostname</string>
@@ -176,6 +174,10 @@
     <string name="hosts_last_modified_local">Local:</string>
     <string name="hosts_last_modified_online">Online:</string>
     <string name="hosts_not_available">not available</string>
+    <string name="hosts_add_dialog_title">Add source</string>
+    <string name="hosts_edit_dialog_title">Edit source</string>
+    <string name="hosts_dialog_url">URL:</string>
+    <string name="hosts_dialog_url_hint">The hosts source URL</string>
 
     <!-- Other -->
     <string name="app_subtitle">Ad blocker</string>
@@ -185,6 +187,12 @@
     <string name="no_file_manager">No file manager could be found to open files. You can install OI File Manager or other file managers to handle this.\n\nDo you want to install OI File Manager?</string>
 
     <!-- Tcpdump -->
+    <string name="tcpdump_header">Tcpdump</string>
+    <string name="tcpdump_description">Tcpdump is a tool to monitor DNS requests and save them in a log file. You can start it in the background, run applications that display ads, and afterwards analyze the DNS requests using the log file. Possible ad server can then be added to your blacklist.</string>
+    <string name="tcpdump_disable_monitoring">Disable monitoring</string>
+    <string name="tcpdump_enable_monitoring">Enable monitoring</string>
+    <string name="tcpdump_show_results">Show results</string>
+    <string name="tcpdump_clear_results">Clear results</string>
     <string name="toast_tcpdump_log_deleted">Log file deleted!</string>
     <string name="toast_tcpdump_added_to_blacklist">Hostname was added to your Blacklist!</string>
     <string name="toast_tcpdump_added_to_whitelist">Hostname was added to your Whitelist!</string>
@@ -192,7 +200,10 @@
     <string name="tcpdump_log_context_whitelist">Add to your Whitelist</string>
     <string name="tcpdump_log_context_browser">Open in Browser</string>
     <string name="tcpdump_log_empty">Log file is empty!</string>
-    <string name="tcpdump_log_footer">Long press one hostname to add it to your Black- or Whitelist!</string>
+    <string name="tcpdump_menu_search">Search</string>
+    <string name="tcpdump_menu_sort">Sort</string>
+    <string name="tcpdump_menu_refresh">Refresh log</string>
+    <string name="tcpdump_menu_clear">Clear log</string>
 
     <!-- Preferences -->
     <string name="pref_download">General Preferences</string>
