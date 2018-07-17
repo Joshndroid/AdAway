@@ -88,35 +88,47 @@ public class TcpdumpLogViewModel extends AndroidViewModel {
         );
     }
 
-    public void addListItem(@NonNull ListType type, @NonNull String host, String redirection) {
+    public void addListItem(@NonNull String host, @NonNull ListType type, String redirection) {
         // Create new host list item
         HostListItem item = new HostListItem();
-        item.setType(type);
         item.setHost(host);
+        item.setType(type);
         item.setRedirection(redirection);
         item.setEnabled(true);
         // Insert host list item
-        AppExecutors.getInstance().diskIO().execute(() -> {
-            try {
-                this.hostListItemDao.insert(item);
-            } catch (SQLiteConstraintException exception) {
-                Log.w(Constants.TAG, "Unable to add duplicate list item: " + item + ".", exception);
-            }
-        });
+        AppExecutors.getInstance().diskIO().execute(() -> this.hostListItemDao.insert(item));
         // Update log entries
+        updateLogEntryType(host, type);
+    }
+
+    public void removeListItem(@NonNull String host) {
+        // Create new host list item to delete
+        HostListItem item = new HostListItem();
+        item.setHost(host);
+        // Insert host list item
+        AppExecutors.getInstance().diskIO().execute(() -> this.hostListItemDao.delete(item));
+        // Update log entries
+        updateLogEntryType(host, null);
+
+    }
+
+    private void updateLogEntryType(@NonNull String host, ListType type) {
+        // Get current values
         List<LogEntry> entries = this.logEntries.getValue();
-        if (entries != null) {
-            List<LogEntry> updatedEntries = new ArrayList<>(entries.size());
-            for (int i = 0; i < entries.size(); i++) {
-                LogEntry entry = entries.get(i);
-                if (entry.getHost().equals(host)) {
-                    updatedEntries.add(i, new LogEntry(host + "test", type));
-                } else {
-                    updatedEntries.add(entry);
-                }
-            }
-            this.logEntries.postValue(updatedEntries);
+        if (entries == null) {
+            return;
         }
+        // Create new collection
+        List<LogEntry> updatedEntries = new ArrayList<>(entries);
+        // Update entry type
+        for (int i = 0; i < entries.size(); i++) {
+            LogEntry entry = entries.get(i);
+            if (entry.getHost().equals(host)) {
+                updatedEntries.set(i, new LogEntry(host, type));
+            }
+        }
+        // Post new values
+        this.logEntries.postValue(updatedEntries);
     }
 
     private void sortDnsRequests(LogEntrySort sort) {
