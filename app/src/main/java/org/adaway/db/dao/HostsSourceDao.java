@@ -9,8 +9,14 @@ import android.arch.persistence.room.Update;
 
 import org.adaway.db.entity.HostsSource;
 
+import java.util.Date;
 import java.util.List;
 
+/**
+ * This interface is the DAO for {@link HostsSource} entities.
+ *
+ * @author Bruce BUJON (bruce.bujon(at)gmail(dot)com)
+ */
 @Dao
 public interface HostsSourceDao {
     @Insert
@@ -22,9 +28,18 @@ public interface HostsSourceDao {
     @Delete
     void delete(HostsSource source);
 
+    @Query("SELECT * FROM hosts_sources WHERE enabled = 1 ORDER BY url ASC")
+    List<HostsSource> getEnabled();
+
     @Query("SELECT * FROM hosts_sources ORDER BY url ASC")
     List<HostsSource> getAll();
 
     @Query("SELECT * FROM hosts_sources ORDER BY url ASC")
     LiveData<List<HostsSource>> loadAll();
+
+    @Query("UPDATE hosts_sources SET last_modified_online = :date WHERE url = :url")
+    void updateOnlineModificationDate(String url, Date date);
+
+    @Query("UPDATE hosts_sources SET last_modified_local = last_modified_online")
+    void updateLocalModificationDatesToOnlineDates();
 }

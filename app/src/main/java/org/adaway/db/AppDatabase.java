@@ -14,15 +14,21 @@ import org.adaway.db.dao.HostListItemDao;
 import org.adaway.db.dao.HostsSourceDao;
 import org.adaway.db.entity.HostListItem;
 import org.adaway.db.entity.HostsSource;
+import org.adaway.provider.RoomMigrationHelper;
 import org.adaway.util.AppExecutors;
 
+/**
+ * This class is the application database based on Room.
+ *
+ * @author Bruce BUJON (bruce.bujon(at)gmail(dot)com)
+ */
 @Database(entities = {HostsSource.class, HostListItem.class}, version = 1)
 @TypeConverters({DateConverter.class, ListTypeConverter.class})
 public abstract class AppDatabase extends RoomDatabase {
     /**
      * The database singleton instance.
      */
-    private static volatile AppDatabase INSTANCE;
+    private static volatile AppDatabase instance;
 
     /**
      * Get the database instance.
@@ -31,30 +37,39 @@ public abstract class AppDatabase extends RoomDatabase {
      * @return The database instance.
      */
     public static AppDatabase getInstance(Context context) {
-        if (INSTANCE == null) {
+        if (instance == null) {
             synchronized (AppDatabase.class) {
-                if (INSTANCE == null) {
-                    INSTANCE = Room.databaseBuilder(
+                if (instance == null) {
+                    instance = Room.databaseBuilder(
                             context.getApplicationContext(),
                             AppDatabase.class,
                             "app.db"
                     ).addCallback(new Callback() {
                         @Override
                         public void onCreate(@NonNull SupportSQLiteDatabase db) {
-                            AppExecutors.getInstance().diskIO().execute(() -> AppDatabase.initialize(INSTANCE));
+                            AppExecutors.getInstance().diskIO().execute(
+                                    () -> {
+                                        RoomMigrationHelper.migrateToRoom(context, instance);
+                                        AppDatabase.initialize(instance);
+                                    }
+                            );
                         }
                     }).build();
                 }
             }
         }
-        return INSTANCE;
+        return instance;
     }
 
     /**
      * Initialize the database content.
      */
-    private static void initialize(AppDatabase db) {
-        HostsSourceDao hostsSourceDao = db.hostsSourceDao();
+    private static void initialize(AppDatabase database) {
+        // Check if there is no hosts source
+        HostsSourceDao hostsSourceDao = database.hostsSourceDao();
+        if (!hostsSourceDao.getAll().isEmpty()) {
+            return;
+        }
         // https://hosts-file.net
         HostsSource source1 = new HostsSource();
         source1.setUrl("https://hosts-file.net/ad_servers.txt");
