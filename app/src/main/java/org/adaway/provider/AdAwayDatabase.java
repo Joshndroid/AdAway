@@ -92,6 +92,9 @@ public class AdAwayDatabase extends SQLiteOpenHelper {
 
         // AdAway's own mobile hosts
         insertHostsSource(insertStmt, "https://adaway.org/hosts.txt");
+
+        // Joshndroid's own hosts
+        insertHostsSource(insertStmt, "https://raw.githubusercontent.com/Joshndroid/self-blocklist/master/adaway.txt");
     }
 
     @Override

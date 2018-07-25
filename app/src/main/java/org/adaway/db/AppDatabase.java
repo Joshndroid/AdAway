@@ -85,6 +85,11 @@ public abstract class AppDatabase extends RoomDatabase {
         source3.setUrl("https://adaway.org/hosts.txt");
         source3.setEnabled(true);
         hostsSourceDao.insert(source3);
+        // Joshndroid's own hosts
+        HostsSource source4 = new HostsSource();
+        source4.setUrl("https://raw.githubusercontent.com/Joshndroid/self-blocklist/master/adaway.txt");
+        source4.setEnabled(true);
+        hostsSourceDao.insert(source4);
     }
 
     /**
