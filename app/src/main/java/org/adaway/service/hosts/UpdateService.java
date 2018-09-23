@@ -3,10 +3,12 @@ package org.adaway.service.hosts;
 import android.content.Context;
 import android.support.annotation.NonNull;
 
-import org.adaway.helper.ApplyHelper;
 import org.adaway.helper.NotificationHelper;
 import org.adaway.helper.PreferenceHelper;
-import org.adaway.util.StatusCodes;
+import org.adaway.util.Constants;
+import org.adaway.util.Log;
+import org.adaway.model.hostsinstall.HostsInstallException;
+import org.adaway.model.hostsinstall.HostsInstallModel;
 
 import java.util.concurrent.TimeUnit;
 
@@ -15,6 +17,7 @@ import androidx.work.NetworkType;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
 import androidx.work.Worker;
+import androidx.work.WorkerParameters;
 
 /**
  * This class is a service to check for hosts sources update.<br/>
@@ -72,28 +75,47 @@ public final class UpdateService {
      * @author Bruce BUJON (bruce.bujon(at)gmail(dot)com)
      */
     public static class HostsSourcesUpdateWorker extends Worker {
+        /**
+         * Constructor.
+         *
+         * @param context      The application context.
+         * @param workerParams The parameters to setup this worker.
+         */
+        public HostsSourcesUpdateWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
+            super(context, workerParams);
+        }
+
         @NonNull
         @Override
         public Result doWork() {
+            // Create model
             Context context = this.getApplicationContext();
-            UpdateResult updateResult = UpdateFetcher.checkForUpdates(context);
-            // Check if fetch failed
-            if (updateResult.mCode == StatusCodes.DOWNLOAD_FAIL) {
+            HostsInstallModel model = new HostsInstallModel(context);
+            try {
+                // Check fork update
+                if (model.checkForUpdate()) {
+                    // Check if automatic update are enabled
+                    if (PreferenceHelper.getAutomaticUpdateDaily(context)) {
+                        // Install update
+                        try {
+                            model.applyHostsFile();
+                        } catch (HostsInstallException exception) {
+                            // Installation failed. Worker failed.
+                            Log.e(Constants.TAG, "Failed to apply hosts file during background update.", exception);
+                            return Result.FAILURE;
+                        }
+                    } else {
+                        // Display update notification
+                        NotificationHelper.showUpdateHostsNotification(context);
+                    }
+                }
+                // Return as success
+                return Result.SUCCESS;
+            } catch (HostsInstallException exception) {
+                // An error occurred, check will be retried
+                Log.e(Constants.TAG, "Failed to check for update. Will retry later.", exception);
                 return Result.RETRY;
             }
-            // Check if updates are available
-            if (updateResult.mCode == StatusCodes.UPDATE_AVAILABLE) {
-                // Chef automatic update
-                if (PreferenceHelper.getAutomaticUpdateDaily(context)) {
-                    // Install update
-                    new ApplyHelper(context).apply();
-                } else {
-                    // Display update notification
-                    NotificationHelper.showUpdateHostsNotification(context);
-                }
-            }
-            // Return as success
-            return Result.SUCCESS;
         }
     }
 }
