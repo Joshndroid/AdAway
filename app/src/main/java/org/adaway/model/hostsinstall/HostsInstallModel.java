@@ -32,12 +32,14 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Observable;
@@ -57,6 +59,13 @@ import static org.adaway.model.hostsinstall.HostsInstallError.SYMLINK_MISSING;
  * @author Bruce BUJON (bruce.bujon(at)gmail(dot)com)
  */
 public class HostsInstallModel extends Observable {
+    /*
+     * Apply modes (see pref pref_apply_method_entries_values).
+     */
+    private static final String APPLY_TO_SYSTEM = "writeToSystem";
+    private static final String APPLY_TO_DATA_DATA = "writeToDataData";
+    private static final String APPLY_TO_DATA = "writeToData";
+    private static final String APPLY_TO_CUSTOM_TARGET = "customTarget";
     /**
      * The application context.
      */
@@ -91,13 +100,13 @@ public class HostsInstallModel extends Observable {
             // Check installation according apply method
             String applyMethod = PreferenceHelper.getApplyMethod(this.context);
             switch (applyMethod) {
-                case "writeToDataData":
+                case APPLY_TO_DATA_DATA:
                     ApplyUtils.createSymlink(Constants.ANDROID_DATA_DATA_HOSTS);
                     break;
-                case "writeToData":
+                case APPLY_TO_DATA:
                     ApplyUtils.createSymlink(Constants.ANDROID_DATA_HOSTS);
                     break;
-                case "customTarget":
+                case APPLY_TO_CUSTOM_TARGET:
                     ApplyUtils.createSymlink(PreferenceHelper.getCustomTarget(this.context));
                     break;
                 default:
@@ -140,10 +149,16 @@ public class HostsInstallModel extends Observable {
         // Initialize update status
         boolean updateAvailable = false;
         boolean anyHostsSourceVerified = false;
+        // Get enabled hosts sources
+        List<HostsSource> enabledSources = hostsSourceDao.getEnabled();
+        if (enabledSources.isEmpty()) {
+            // Return no update as no source enabled
+            return false;
+        }
         // Update state
         this.setStateAndDetails(R.string.status_checking, R.string.status_checking);
         // Check each enabled source
-        for (HostsSource source : hostsSourceDao.getEnabled()) {
+        for (HostsSource source : enabledSources) {
             // Get URL and lastModified from db
             String sourceUrl = source.getUrl();
             Date lastModifiedLocal = source.getLastLocalModification();
@@ -194,17 +209,25 @@ public class HostsInstallModel extends Observable {
     @Nullable
     private Date getHostsSourceLastUpdate(String url) {
         Log.v(Constants.TAG, "Checking hosts file: " + url);
+        // Check GitHub hosting
+        if (GithubHostsSource.isHostedOnGithub(url)) {
+            try {
+                return new GithubHostsSource(url).getLastUpdate();
+            } catch (MalformedURLException exception) {
+                Log.w(Constants.TAG, "Failed to get GitHub last update for url " + url + ".", exception);
+                return null;
+            }
+        }
+        // Default hosting
         try {
             /* build connection */
             URL mURL = new URL(url);
-            URLConnection connection = mURL.openConnection();
+            HttpURLConnection connection = (HttpURLConnection) mURL.openConnection();
             connection.setConnectTimeout(15000);
             connection.setReadTimeout(30000);
-            Date currentLastModifiedOnline = new Date(connection.getLastModified());
-            // Check if file is available
-            connection.connect();
-            connection.getInputStream().close();
-            return currentLastModifiedOnline;
+            long lastModified = connection.getLastModified();
+            connection.disconnect();
+            return new Date(lastModified);
         } catch (Exception exception) {
             Log.e(Constants.TAG, "Exception while downloading from " + url, exception);
             return null;
@@ -262,13 +285,12 @@ public class HostsInstallModel extends Observable {
         // Set state to downloading hosts source
         this.setStateAndDetails(R.string.download_dialog, hostsFileUrl);
         // Create connection
-        URLConnection connection;
+        HttpURLConnection connection;
         try {
             URL mURL = new URL(hostsFileUrl);
-            connection = mURL.openConnection();
+            connection = (HttpURLConnection) mURL.openConnection();
             connection.setConnectTimeout(15000);
             connection.setReadTimeout(30000);
-            connection.connect();
         } catch (IOException exception) {
             Log.e(Constants.TAG, "Unable to connect to " + hostsFileUrl + ".", exception);
             // Update last_modified_online of failed download to 0 (not available)
@@ -301,6 +323,8 @@ public class HostsInstallModel extends Observable {
             hostsSourceDao.updateOnlineModificationDate(hostsFileUrl, null);
             // Return download failed
             return false;
+        } finally {
+            connection.disconnect();
         }
         // Return download successful
         return true;
@@ -364,16 +388,16 @@ public class HostsInstallModel extends Observable {
         // Check installation according apply method
         String applyMethod = PreferenceHelper.getApplyMethod(this.context);
         switch (applyMethod) {
-            case "writeToSystem":
+            case APPLY_TO_SYSTEM:
                 /* /system/etc/hosts */
                 return ApplyUtils.isHostsFileCorrect(Constants.ANDROID_SYSTEM_ETC_HOSTS);
-            case "writeToDataData":
+            case APPLY_TO_DATA_DATA:
                 /* /data/data/hosts */
                 return ApplyUtils.isHostsFileCorrect(Constants.ANDROID_DATA_DATA_HOSTS);
-            case "writeToData":
+            case APPLY_TO_DATA:
                 /* /data/data/hosts */
                 return ApplyUtils.isHostsFileCorrect(Constants.ANDROID_DATA_HOSTS);
-            case "customTarget":
+            case APPLY_TO_CUSTOM_TARGET:
                 /* custom target */
                 String customTarget = PreferenceHelper.getCustomTarget(this.context);
                 return ApplyUtils.isHostsFileCorrect(customTarget);
@@ -392,16 +416,16 @@ public class HostsInstallModel extends Observable {
         // Check installation according apply method
         String applyMethod = PreferenceHelper.getApplyMethod(this.context);
         switch (applyMethod) {
-            case "writeToSystem":
+            case APPLY_TO_SYSTEM:
                 // System hosts file used, no need of symlink
                 return true;
-            case "writeToDataData":
+            case APPLY_TO_DATA_DATA:
                 // /data/data/hosts
                 return ApplyUtils.isSymlinkCorrect(Constants.ANDROID_DATA_DATA_HOSTS, shell);
-            case "writeToData":
+            case APPLY_TO_DATA:
                 // /data/data/hosts
                 return ApplyUtils.isSymlinkCorrect(Constants.ANDROID_DATA_HOSTS, shell);
-            case "customTarget":
+            case APPLY_TO_CUSTOM_TARGET:
                 // custom target
                 String customTarget = PreferenceHelper.getCustomTarget(this.context);
                 return ApplyUtils.isSymlinkCorrect(customTarget, shell);
@@ -415,16 +439,16 @@ public class HostsInstallModel extends Observable {
         try {
             String applyMethod = PreferenceHelper.getApplyMethod(this.context);
             switch (applyMethod) {
-                case "writeToSystem":
+                case APPLY_TO_SYSTEM:
                     ApplyUtils.copyHostsFile(this.context, Constants.ANDROID_SYSTEM_ETC_HOSTS, rootShell);
                     break;
-                case "writeToDataData":
+                case APPLY_TO_DATA_DATA:
                     ApplyUtils.copyHostsFile(this.context, Constants.ANDROID_DATA_DATA_HOSTS, rootShell);
                     break;
-                case "writeToData":
+                case APPLY_TO_DATA:
                     ApplyUtils.copyHostsFile(this.context, Constants.ANDROID_DATA_HOSTS, rootShell);
                     break;
-                case "customTarget":
+                case APPLY_TO_CUSTOM_TARGET:
                     String customTarget = PreferenceHelper.getCustomTarget(this.context);
                     ApplyUtils.copyHostsFile(this.context, customTarget, rootShell);
                     break;
@@ -598,21 +622,20 @@ public class HostsInstallModel extends Observable {
                     + Constants.LINE_SEPARATOR + Constants.LOCALHOST_IPv6 + " "
                     + Constants.LOCALHOST_HOSTNAME;
             fos.write(localhost.getBytes());
-            fos.close();
             // Get hosts file target based on preferences
             String applyMethod = PreferenceHelper.getApplyMethod(this.context);
             String target;
             switch (applyMethod) {
-                case "writeToSystem":
+                case APPLY_TO_SYSTEM:
                     target = Constants.ANDROID_SYSTEM_ETC_HOSTS;
                     break;
-                case "writeToDataData":
+                case APPLY_TO_DATA_DATA:
                     target = Constants.ANDROID_DATA_DATA_HOSTS;
                     break;
-                case "writeToData":
+                case APPLY_TO_DATA:
                     target = Constants.ANDROID_DATA_HOSTS;
                     break;
-                case "customTarget":
+                case APPLY_TO_CUSTOM_TARGET:
                     target = PreferenceHelper.getCustomTarget(this.context);
                     break;
                 default:

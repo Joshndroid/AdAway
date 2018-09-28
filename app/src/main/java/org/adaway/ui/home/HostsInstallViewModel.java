@@ -58,26 +58,26 @@ public class HostsInstallViewModel extends AndroidViewModel {
         this.loaded = false;
     }
 
-    public MutableLiveData<HostsInstallStatus> getStatus() {
+    MutableLiveData<HostsInstallStatus> getStatus() {
         return this.status;
     }
 
-    public MutableLiveData<String> getState() {
+    MutableLiveData<String> getState() {
         return this.state;
     }
 
-    public MutableLiveData<String> getDetails() {
+    MutableLiveData<String> getDetails() {
         return this.details;
     }
 
-    public MutableLiveData<HostsInstallError> getError() {
+    MutableLiveData<HostsInstallError> getError() {
         return this.error;
     }
 
     /**
      * Initialize the model with its current state.
      */
-    public void load() {
+    void load() {
         // Check if model is already loaded
         if (this.loaded) {
             return;
@@ -88,21 +88,21 @@ public class HostsInstallViewModel extends AndroidViewModel {
             if (ApplyUtils.isHostsFileCorrect(Constants.ANDROID_SYSTEM_ETC_HOSTS)) {
                 this.status.postValue(INSTALLED);
                 this.setStateAndDetails(R.string.status_enabled, R.string.status_enabled_subtitle);
+                // Check for update if needed
+                if (PreferenceHelper.getUpdateCheck(this.getApplication())) {
+                    this.checkForUpdate();
+                }
             } else {
                 this.status.postValue(ORIGINAL);
                 this.setStateAndDetails(R.string.status_disabled, R.string.status_disabled_subtitle);
             }
         });
-        // Check for update if needed
-        if (PreferenceHelper.getUpdateCheck(this.getApplication())) {
-            this.checkForUpdate();
-        }
     }
 
     /**
      * Update the hosts file.
      */
-    public void update() {
+    void update() {
         AppExecutors.getInstance().diskIO().execute(() -> {
             HostsInstallStatus previousStatus = this.status.getValue();
             this.status.postValue(WORK_IN_PROGRESS);
@@ -121,7 +121,7 @@ public class HostsInstallViewModel extends AndroidViewModel {
     /**
      * Check if there is update available in hosts source.
      */
-    public void checkForUpdate() {
+    void checkForUpdate() {
         AppExecutors.getInstance().networkIO().execute(() -> {
             // Update status
             this.status.postValue(WORK_IN_PROGRESS);
@@ -143,7 +143,7 @@ public class HostsInstallViewModel extends AndroidViewModel {
     /**
      * Revert to the default hosts file.
      */
-    public void revert() {
+    void revert() {
         AppExecutors.getInstance().mainThread().execute(() -> {
             this.status.postValue(WORK_IN_PROGRESS);
             try {
@@ -158,11 +158,7 @@ public class HostsInstallViewModel extends AndroidViewModel {
     }
 
     private void setStateAndDetails(@StringRes int stateResId, @StringRes int detailsResId) {
-        this.setStateAndDetails(stateResId, this.getApplication().getString(detailsResId));
-    }
-
-    private void setStateAndDetails(@StringRes int stateResId, String details) {
         this.state.postValue(this.getApplication().getString(stateResId));
-        this.details.postValue(details);
+        this.details.postValue(this.getApplication().getString(detailsResId));
     }
 }
