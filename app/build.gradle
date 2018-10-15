@@ -9,14 +9,19 @@ def getGitSha1 = { ->
     return stdout.toString().trim()
 }
 
+def keyStoreDefined = project.hasProperty('signingStoreLocation') &&
+        project.hasProperty('signingStorePassword') &&
+        project.hasProperty('signingKeyAlias') &&
+        project.hasProperty('signingKeyPassword')
+
 android {
     compileSdkVersion 28
     buildToolsVersion '28.0.3'
     defaultConfig {
         minSdkVersion 16
         targetSdkVersion 28
-        versionCode 40009   // Read 4.xx.yy to match version name
-        versionName '4.0.9'
+        versionCode 40010   // Read 4.xx.yy to match version name
+        versionName '4.0.10'
         versionNameSuffix '-' + getGitSha1()
 
         vectorDrawables.useSupportLibrary = true
@@ -36,10 +41,7 @@ android {
      * signingKeyAlias=alias
      * signingKeyPassword=xxx
      */
-    if (project.hasProperty('signingStoreLocation') &&
-            project.hasProperty('signingStorePassword') &&
-            project.hasProperty('signingKeyAlias') &&
-            project.hasProperty('signingKeyPassword')) {
+    if (keyStoreDefined) {
         println "Found signature properties in gradle.properties. Build will be signed."
 
         signingConfigs {
@@ -65,13 +67,6 @@ android {
     lintOptions {
         abortOnError false
     }
-
-    // Temporary bug fix for work-manager 1.0.0-alpha9 version
-    // TODO Should be removed with the next version
-    // See: https://developer.android.com/jetpack/docs/release-notes#workmanager
-    packagingOptions {
-        exclude 'META-INF/proguard/androidx-annotations.pro'
-    }
 }
 
 ext {
@@ -79,7 +74,7 @@ ext {
     lifecycle = '1.1.1'
     room = '1.1.1'
     support = '28.0.0'
-    work = '1.0.0-alpha09'
+    work = '1.0.0-alpha10'
 }
 
 dependencies {
