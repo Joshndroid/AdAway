@@ -35,6 +35,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -149,16 +150,16 @@ public class HostsInstallModel extends Observable {
         // Initialize update status
         boolean updateAvailable = false;
         boolean anyHostsSourceVerified = false;
-        // Get enabled hosts sources
-        List<HostsSource> enabledSources = hostsSourceDao.getEnabled();
-        if (enabledSources.isEmpty()) {
-            // Return no update as no source enabled
+        // Get hosts sources
+        List<HostsSource> sources = hostsSourceDao.getAll();
+        if (sources.isEmpty()) {
+            // Return no update as no source
             return false;
         }
         // Update state
         this.setStateAndDetails(R.string.status_checking, R.string.status_checking);
-        // Check each enabled source
-        for (HostsSource source : enabledSources) {
+        // Check each source
+        for (HostsSource source : sources) {
             // Get URL and lastModified from db
             String sourceUrl = source.getUrl();
             Date lastModifiedLocal = source.getLastLocalModification();
@@ -180,8 +181,8 @@ public class HostsInstallModel extends Observable {
             // Check if last modified online retrieved
             if (lastModifiedOnline != null) {
                 anyHostsSourceVerified = true;
-                // Check if update is available for this hosts file
-                if (lastModifiedLocal == null || lastModifiedOnline.after(lastModifiedLocal)) {
+                // Check if update is available for this source and source enabled
+                if (source.isEnabled() && (lastModifiedLocal == null || lastModifiedOnline.after(lastModifiedLocal))) {
                     updateAvailable = true;
                 }
             }
@@ -285,10 +286,10 @@ public class HostsInstallModel extends Observable {
         // Set state to downloading hosts source
         this.setStateAndDetails(R.string.download_dialog, hostsFileUrl);
         // Create connection
-        HttpURLConnection connection;
+        URLConnection connection;
         try {
             URL mURL = new URL(hostsFileUrl);
-            connection = (HttpURLConnection) mURL.openConnection();
+            connection = mURL.openConnection();
             connection.setConnectTimeout(15000);
             connection.setReadTimeout(30000);
         } catch (IOException exception) {
@@ -324,7 +325,10 @@ public class HostsInstallModel extends Observable {
             // Return download failed
             return false;
         } finally {
-            connection.disconnect();
+            // Disconnect HTTP connection (does nothing with file:// resources)
+            if (connection instanceof HttpURLConnection) {
+                ((HttpURLConnection) connection).disconnect();
+            }
         }
         // Return download successful
         return true;
