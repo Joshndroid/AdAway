@@ -78,6 +78,9 @@
     <string name="status_disabled_subtitle">Default hosts file installed</string>
     <string name="notification_channel_update_name">Updates</string>
     <string name="notification_channel_update_description">New hosts update notifications</string>
+    <string name="notification_configuration_changed">Your configuration changed. You need to install hosts file to apply it.</string>
+    <string name="notification_configuration_changed_action">Apply</string>
+    <string name="notification_configuration_installing">Installing hosts file…</string>
 
     <!--Apply and Revert Dialogs-->
     <string name="apply_symlink_missing">Symlink from your target to /system/etc/hosts is not existing or incorrect! AdAway will not work if it is not pointing to the right file.\n\nDo you want to try creating a symlink?</string>
@@ -230,8 +233,10 @@
     <string name="pref_redirection_rules">Allow redirects</string>
     <string name="pref_redirection_rules_summary">POSES SECURITY RISK! Allow redirection entries from Hosts Sources.</string>
     <string name="pref_debug">Debug</string>
-    <string name="pref_enable_debug">Debug Logging</string>
+    <string name="pref_enable_debug">Enable verbose logging</string>
     <string name="pref_enable_debug_summary">You need to restart AdAway for this setting to take effect.</string>
+    <string name="pref_enable_telemetry">Enable crash report</string>
+    <string name="pref_enable_telemetry_summary">Allow the application to send errors and crash reports to Sentry (sentry.io).</string>
     <string name="pref_enable_ipv6">Enable IPv6</string>
     <string name="pref_enable_ipv6_summary">All host file entries will get a corresponding ::1 (IPv6 localhost) entry.</string>
     <string name="pref_enable_systemless_summary">Prevent AdAway from modifying the system partition</string>

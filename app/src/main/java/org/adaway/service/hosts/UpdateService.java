@@ -5,6 +5,7 @@ import android.support.annotation.NonNull;
 
 import org.adaway.helper.NotificationHelper;
 import org.adaway.helper.PreferenceHelper;
+import org.adaway.ui.AdAwayApplication;
 import org.adaway.util.Constants;
 import org.adaway.util.Log;
 import org.adaway.model.hostsinstall.HostsInstallException;
@@ -88,9 +89,10 @@ public final class UpdateService {
         @NonNull
         @Override
         public Result doWork() {
+            Log.i(Constants.TAG, "Starting update worker");
             // Create model
-            Context context = this.getApplicationContext();
-            HostsInstallModel model = new HostsInstallModel(context);
+            AdAwayApplication application = (AdAwayApplication) this.getApplicationContext();
+            HostsInstallModel model = application.getHostsInstallModel();
             // Check for update
             boolean hasUpdate;
             try {
@@ -103,7 +105,7 @@ public final class UpdateService {
             if (hasUpdate) {
                 // Do update
                 try {
-                    doUpdate(context, model);
+                    doUpdate(application, model);
                 } catch (HostsInstallException exception) {
                     // Installation failed. Worker failed.
                     Log.e(Constants.TAG, "Failed to apply hosts file during background update.", exception);
