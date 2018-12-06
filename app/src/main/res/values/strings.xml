@@ -81,6 +81,7 @@
     <string name="notification_configuration_changed">Your configuration changed. You need to install hosts file to apply it.</string>
     <string name="notification_configuration_changed_action">Apply</string>
     <string name="notification_configuration_installing">Installing hosts file…</string>
+    <string name="notification_configuration_failed">Failed to install hosts file.</string>
 
     <!--Apply and Revert Dialogs-->
     <string name="apply_symlink_missing">Symlink from your target to /system/etc/hosts is not existing or incorrect! AdAway will not work if it is not pointing to the right file.\n\nDo you want to try creating a symlink?</string>
@@ -235,7 +236,7 @@
     <string name="pref_debug">Debug</string>
     <string name="pref_enable_debug">Enable verbose logging</string>
     <string name="pref_enable_debug_summary">You need to restart AdAway for this setting to take effect.</string>
-    <string name="pref_enable_telemetry">Enable crash report</string>
+    <string name="pref_enable_telemetry">Enable crash reports</string>
     <string name="pref_enable_telemetry_summary">Allow the application to send errors and crash reports to Sentry (sentry.io).</string>
     <string name="pref_enable_ipv6">Enable IPv6</string>
     <string name="pref_enable_ipv6_summary">All host file entries will get a corresponding ::1 (IPv6 localhost) entry.</string>
@@ -261,6 +262,12 @@
     <string name="drawer_support_dialog_title">Support development</string>
     <string name="drawer_support_dialog_text">AdAway is a Free and Open-Source software developed and maintained by the community only. It took me two years as a spare time project to build this new version of the app.\n\nIf you like it and want to see more updates, feel free to support the project.</string>
     <string name="drawer_support_dialog_button">Show my support</string>
+
+    <!--Telemetry-->
+    <string name="dialog_telemetry_title">Telemetry</string>
+    <string name="dialog_telemetry_message">Hello dear user,\n\nYou could now participate to the development of AdAway by sharing your crash reports and basic usage information. All data are anonymous and telemetry will only be enabled if you agree to.\n\nYou could find more details on <a href="https://github.com/AdAway/AdAway/wiki/telemetry.md">GitHub</a>.</string>
+    <string name="dialog_telemetry_enable">Sure, I\'m glad to help!</string>
+    <string name="dialog_telemetry_disable">No thanks</string>
 
     <!--Shortcuts-->
     <string name="shortcut_dns_requests">DNS requests</string>
