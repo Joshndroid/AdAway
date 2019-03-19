@@ -45,9 +45,6 @@ android {
 
         buildTypes.debug.signingConfig = signingConfigs.release
         buildTypes.release.signingConfig = signingConfigs.release
-    } else {
-        buildTypes.debug.signingConfig = null
-        buildTypes.release.signingConfig = null
     }
 
     compileOptions {
@@ -83,7 +80,7 @@ ext {
     material = '1.1.0-alpha04'
     room = '2.0.0'
     support = '1.0.0'
-    work = '1.0.0-rc02'
+    work = '1.0.0'
 }
 
 dependencies {
@@ -99,11 +96,11 @@ dependencies {
     implementation "android.arch.work:work-runtime:${work}"
 
     // Support libraries
-    implementation "androidx.appcompat:appcompat:1.1.0-alpha02"
+    implementation "androidx.appcompat:appcompat:1.1.0-alpha03"
     implementation "androidx.cardview:cardview:${support}"
     implementation "androidx.constraintlayout:constraintlayout:${constraint_layout}"
     implementation "androidx.preference:preference:${support}"
-    implementation "androidx.recyclerview:recyclerview:1.1.0-alpha02"
+    implementation "androidx.recyclerview:recyclerview:1.1.0-alpha03"
     implementation "androidx.fragment:fragment:1.1.0-alpha4"
     implementation "com.google.android.material:material:${material}"
 
