@@ -1,7 +1,11 @@
+<!-- Maintain structure with headings with h2 tags and content with p tags.
+This makes it easy to translate the values with transifex!
+And don't add newlines before or after p tags because of transifex -->
+<!DOCTYPE html>
 <html>
 <head><title>FAQ</title></head>
 <body>
-<h2>hostsのソースの日時不明って何?</h2>
+<h2>広告からの収入</h2>
 <p>仕様です。ファイルをダウンロードして適用したときに成功していれば、日時不明と書かれていても反映されています</p>
 
 
@@ -17,11 +21,11 @@
 
 <h2>ウェブサーバーはどうやって使うの？</h2>
 <p><strong>AdAwayはWebサーバーを使用せずにも動作します！</strong>
-<br/><br/>AdAwayの環境設定でローカルWebサーバを有効にして、ローカルIPアドレス<code>127.0.0.1</code>へのリクエストに答えることができます。 これは、<code>127.0.0.1</code>にリダイレクトされる広告サーバーへのアプリからのリクエストが、AdAwayのWebサーバーによって応答されることを意味します。
-<br/>一部のアプリでは、広告サーバーにアクセスできない場合は動作しません。 この方法では、再び空白のページと広告画像で表示します</p>
+<br><br>AdAwayの環境設定でローカルWebサーバを有効にして、ローカルIPアドレス<code>127.0.0.1</code>へのリクエストに答えることができます。 これは、<code>127.0.0.1</code>にリダイレクトされる広告サーバーへのアプリからのリクエストが、AdAwayのWebサーバーによって応答されることを意味します。
+<br>一部のアプリでは、広告サーバーにアクセスできない場合は動作しません。 この方法では、再び空白のページと広告画像で表示します</p>
 
 <h2>特定のホスト名をブロック/アンブロックするにはどうしたらいい？</h2>
-<p>Add the hostnames you want to block to the <cite>Blacklist</cite> (=Black) under <cite>Your lists</cite>. Additionally, hostnames you want to exclude from blocking can be added to the <cite>Whitelist</cite> (=White) and hostnames you want to redirect to a specific IP address belong to the <cite>Redirect list</cite> (=Redirection).</p>
+<p>ブロックしたいホスト名は<cite>あなたのリスト</cite>の中の<cite>ブラックリスト</cite>(=ブラック)に追加します。さらに、遮断から除外したいホスト名は<cite>ホワイトリスト</cite>(=ホワイト)に追加できます。特定の IPアドレスに転送したいホスト名は<cite>リダイレクトリスト</cite>(=リダイレクト)に入れます。</p>
 
 <h2>hostsファイルはどこで見つけられる？</h2>
 <p><a href="https://github.com/AdAway/AdAway/wiki/HostsSources">AdAwayのホストソースのリスト追加</a>を参照してください</p>
