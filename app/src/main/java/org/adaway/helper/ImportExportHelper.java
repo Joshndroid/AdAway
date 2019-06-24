@@ -28,17 +28,19 @@ import android.os.AsyncTask;
 import android.os.Environment;
 import android.widget.Toast;
 
-import com.annimon.stream.Collectors;
 import com.annimon.stream.Stream;
 
 import org.adaway.R;
 import org.adaway.db.AppDatabase;
 import org.adaway.db.dao.HostListItemDao;
+import org.adaway.db.dao.HostsSourceDao;
 import org.adaway.db.entity.HostListItem;
+import org.adaway.db.entity.HostsSource;
 import org.adaway.db.entity.ListType;
-import org.adaway.util.Constants;
-import org.adaway.util.HostsParser;
 import org.adaway.util.Log;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -49,49 +51,172 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.ref.WeakReference;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
+
+import static org.adaway.db.entity.ListType.BLACK_LIST;
+import static org.adaway.db.entity.ListType.REDIRECTION_LIST;
+import static org.adaway.db.entity.ListType.WHITE_LIST;
+import static org.adaway.util.Constants.TAG;
 
 /**
- * This class is a helper class to import/export user lists to a backup file on sdcard.
+ * This class is a helper class to import/export user lists and hosts sources to a backup file on sdcard.
  *
  * @author Bruce BUJON (bruce.bujon(at)gmail(dot)com)
  */
 public class ImportExportHelper {
     /**
+     * The request code to identify the write external storage permission in {@link androidx.fragment.app.Fragment#onRequestPermissionsResult(int, java.lang.String[], int[])}.
+     */
+    public static final int REQUEST_CODE_WRITE_STORAGE_PERMISSION = 10;
+    /**
      * The request code to identify the selection of a file in {@link androidx.fragment.app.Fragment#onActivityResult(int, int, Intent)}.
      */
-    public final static int REQUEST_CODE_IMPORT = 42;
+    public static final int REQUEST_CODE_IMPORT = 42;
+    /**
+     * The default backup file name.
+     */
+    private static final String BACKUP_FILE_NAME = "adaway-backup.json";
+    /*
+     * Backup format.
+     */
+    private static final String SOURCES_KEY = "sources";
+    private static final String BLOCKED_KEY = "blocked";
+    private static final String ALLOWED_KEY = "allowed";
+    private static final String REDIRECTED_KEY = "redirected";
+    private static final String ENABLED_ATTRIBUTE = "enabled";
+    private static final String HOST_ATTRIBUTE = "host";
+    private static final String REDIRECT_ATTRIBUTE = "redirect";
+    private static final String URL_ATTRIBUTE = "url";
 
     /**
-     * Import the given user lists backup file.
+     * Import a backup file.
      *
-     * @param context      The application context.
-     * @param userListsUri The URI of the user lists backup file.
+     * @param context   The application context.
+     * @param backupUri The URI of a backup file.
      */
-    public static void importLists(Context context, Uri userListsUri) {
-        // Import user lists
-        new ImportListsTask(context).execute(userListsUri);
+    public static void importFromBackup(Context context, Uri backupUri) {
+        new ImportTask(context).execute(backupUri);
     }
 
     /**
-     * Exports all lists to adaway-export file on sdcard.
+     * Export all user lists and hosts sources to a backup file on the external storage.
      *
      * @param context The application context.
      */
-    public static void exportLists(final Context context) {
+    public static void exportToBackup(Context context) {
         // Export user lists
-        new ExportListsTask(context).execute();
+        new ExportTask(context).execute();
+    }
+
+    private static JSONObject makeBackup(Context context) throws JSONException {
+        AppDatabase database = AppDatabase.getInstance(context);
+        HostsSourceDao hostsSourceDao = database.hostsSourceDao();
+        HostListItemDao hostListItemDao = database.hostsListItemDao();
+
+        List<HostListItem> allHosts = hostListItemDao.getAll();
+        List<HostListItem> blockedHosts = Stream.of(allHosts)
+                .filter(value -> value.getType() == BLACK_LIST)
+                .toList();
+        List<HostListItem> allowedHosts = Stream.of(allHosts)
+                .filter(value -> value.getType() == WHITE_LIST)
+                .toList();
+        List<HostListItem> redirectedHosts = Stream.of(allHosts)
+                .filter(value -> value.getType() == REDIRECTION_LIST)
+                .toList();
+
+        JSONObject backupObject = new JSONObject();
+        backupObject.put(SOURCES_KEY, buildSourcesBackup(hostsSourceDao.getAll()));
+        backupObject.put(BLOCKED_KEY, buildListBackup(blockedHosts));
+        backupObject.put(ALLOWED_KEY, buildListBackup(allowedHosts));
+        backupObject.put(REDIRECTED_KEY, buildListBackup(redirectedHosts));
+
+        return backupObject;
+    }
+
+    private static void importBackup(Context context, JSONObject backupObject) throws JSONException {
+        AppDatabase database = AppDatabase.getInstance(context);
+        HostsSourceDao hostsSourceDao = database.hostsSourceDao();
+        HostListItemDao hostListItemDao = database.hostsListItemDao();
+
+        importSourceBackup(hostsSourceDao, backupObject.getJSONArray(SOURCES_KEY));
+        importListBackup(hostListItemDao, BLACK_LIST, backupObject.getJSONArray(BLOCKED_KEY));
+        importListBackup(hostListItemDao, WHITE_LIST, backupObject.getJSONArray(ALLOWED_KEY));
+        importListBackup(hostListItemDao, REDIRECTION_LIST, backupObject.getJSONArray(REDIRECTED_KEY));
+    }
+
+    private static JSONArray buildSourcesBackup(List<HostsSource> sources) throws JSONException {
+        JSONArray sourceArray = new JSONArray();
+        for (HostsSource source : sources) {
+            sourceArray.put(sourceToJson(source));
+        }
+        return sourceArray;
+    }
+
+    private static void importSourceBackup(HostsSourceDao hostsSourceDao, JSONArray sources) throws JSONException {
+        for (int index = 0; index < sources.length(); index++) {
+            JSONObject sourceObject = sources.getJSONObject(index);
+            hostsSourceDao.insert(sourceFromJson(sourceObject));
+        }
+    }
+
+    private static JSONArray buildListBackup(List<HostListItem> hosts) throws JSONException {
+        JSONArray listArray = new JSONArray();
+        for (HostListItem host : hosts) {
+            listArray.put(hostToJson(host));
+        }
+        return listArray;
+    }
+
+    private static void importListBackup(HostListItemDao hostListItemDao, ListType type, JSONArray hosts) throws JSONException {
+        for (int index = 0; index < hosts.length(); index++) {
+            JSONObject hostObject = hosts.getJSONObject(index);
+            HostListItem host = hostFromJson(hostObject);
+            host.setType(type);
+            hostListItemDao.insert(host);
+        }
+    }
+
+    private static JSONObject sourceToJson(HostsSource source) throws JSONException {
+        JSONObject sourceObject = new JSONObject();
+        sourceObject.put(URL_ATTRIBUTE, source.getUrl());
+        sourceObject.put(ENABLED_ATTRIBUTE, source.isEnabled());
+        return sourceObject;
+    }
+
+    private static HostsSource sourceFromJson(JSONObject sourceObject) throws JSONException {
+        HostsSource source = new HostsSource();
+        source.setUrl(sourceObject.getString(URL_ATTRIBUTE));
+        source.setEnabled(sourceObject.getBoolean(ENABLED_ATTRIBUTE));
+        return source;
+    }
+
+    private static JSONObject hostToJson(HostListItem host) throws JSONException {
+        JSONObject hostObject = new JSONObject();
+        hostObject.put(HOST_ATTRIBUTE, host.getHost());
+        String redirection = host.getRedirection();
+        if (redirection != null && !redirection.isEmpty()) {
+            hostObject.put(REDIRECT_ATTRIBUTE, redirection);
+        }
+        hostObject.put(ENABLED_ATTRIBUTE, host.isEnabled());
+        return hostObject;
+    }
+
+    private static HostListItem hostFromJson(JSONObject hostObject) throws JSONException {
+        HostListItem host = new HostListItem();
+        host.setHost(hostObject.getString(HOST_ATTRIBUTE));
+        if (hostObject.has(REDIRECT_ATTRIBUTE)) {
+            host.setRedirection(hostObject.getString(REDIRECT_ATTRIBUTE));
+        }
+        host.setEnabled(hostObject.getBoolean(ENABLED_ATTRIBUTE));
+        return host;
     }
 
     /**
-     * This class is an {@link AsyncTask} to import user lists.
+     * This class is an {@link AsyncTask} to import from a backup file.
      *
      * @author Bruce BUJON (bruce.bujon(at)gmail(dot)com)
      */
-    private static class ImportListsTask extends AsyncTask<Uri, Void, Void> {
+    private static class ImportTask extends AsyncTask<Uri, Void, Boolean> {
         /**
          * A weak reference to application context.
          */
@@ -106,46 +231,45 @@ public class ImportExportHelper {
          *
          * @param context The application context.
          */
-        private ImportListsTask(Context context) {
+        private ImportTask(Context context) {
             // Store context into weak reference to prevent memory leak
             this.mWeakContext = new WeakReference<>(context);
         }
 
         @Override
-        protected Void doInBackground(Uri... results) {
+        protected Boolean doInBackground(Uri... results) {
             // Check parameters
             if (results.length < 1) {
-                return null;
+                return false;
             }
             // Get URI to export lists
             Uri result = results[0];
             // Get context from weak reference
             Context context = this.mWeakContext.get();
             if (context == null) {
-                return null;
+                return false;
             }
-            // Get database
-            AppDatabase database = AppDatabase.getInstance(context);
             // Get input stream from user selected URI
-            try (InputStream inputStream = context.getContentResolver().openInputStream(result)) {
-                if (inputStream != null) {
-                    // Create reader from input stream
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-                        // Parse user lists
-                        HostsParser parser = new HostsParser(reader, true, true);
-                        // Import parsed user lists
-                        this.importBlackList(database, parser.getBlacklist());
-                        this.importWhiteList(database, parser.getWhitelist());
-                        this.importRedirectionList(database, parser.getRedirectList());
-                    }
+            try (InputStream inputStream = context.getContentResolver().openInputStream(result);
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+                StringBuilder contentBuilder = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    contentBuilder.append(line);
                 }
+                JSONObject backupObject = new JSONObject(contentBuilder.toString());
+                importBackup(context, backupObject);
+            } catch (JSONException exception) {
+                Log.e(TAG, "Failed to parse backup file.", exception);
+                return false;
             } catch (FileNotFoundException exception) {
-                Log.e(Constants.TAG, "File not found!", exception);
+                Log.e(TAG, "Failed to find backup file.", exception);
+                return false;
             } catch (IOException exception) {
-                Log.e(Constants.TAG, "IO Exception", exception);
+                Log.e(TAG, "Failed to read backup file.", exception);
+                return false;
             }
-            // Return nothing
-            return null;
+            return true;
         }
 
         @Override
@@ -165,61 +289,33 @@ public class ImportExportHelper {
         }
 
         @Override
-        protected void onPostExecute(Void unused) {
-            super.onPostExecute(unused);
+        protected void onPostExecute(Boolean imported) {
+            super.onPostExecute(imported);
             // Check progress dialog
             if (this.mProgressDialog != null) {
                 this.mProgressDialog.dismiss();
             }
-        }
-
-        private void importBlackList(AppDatabase database, Set<String> blackListHosts) {
-            HostListItem[] blackListItems = Stream.of(blackListHosts)
-                    .map(host -> {
-                        HostListItem listItem = new HostListItem();
-                        listItem.setHost(host);
-                        listItem.setType(ListType.BLACK_LIST);
-                        listItem.setEnabled(true);
-                        return listItem;
-                    })
-                    .toArray(HostListItem[]::new);
-            database.hostsListItemDao().insert(blackListItems);
-        }
-
-        private void importWhiteList(AppDatabase database, Set<String> whiteListHosts) {
-            HostListItem[] whiteListItems = Stream.of(whiteListHosts)
-                    .map(host -> {
-                        HostListItem listItem = new HostListItem();
-                        listItem.setHost(host);
-                        listItem.setType(ListType.WHITE_LIST);
-                        listItem.setEnabled(true);
-                        return listItem;
-                    })
-                    .toArray(HostListItem[]::new);
-            database.hostsListItemDao().insert(whiteListItems);
-        }
-
-        private void importRedirectionList(AppDatabase database, Map<String, String> redirections) {
-            HostListItem[] redirectionListItems = Stream.of(redirections)
-                    .map(redirection -> {
-                        HostListItem listItem = new HostListItem();
-                        listItem.setHost(redirection.getKey());
-                        listItem.setType(ListType.REDIRECTION_LIST);
-                        listItem.setEnabled(true);
-                        listItem.setRedirection(redirection.getValue());
-                        return listItem;
-                    })
-                    .toArray(HostListItem[]::new);
-            database.hostsListItemDao().insert(redirectionListItems);
+            // Get context from weak reference
+            Context context = this.mWeakContext.get();
+            if (context == null) {
+                return;
+            }
+            // Display user toast notification
+            Toast toast = Toast.makeText(
+                    context,
+                    context.getString(imported ? R.string.import_success : R.string.import_dialog),
+                    Toast.LENGTH_LONG
+            );
+            toast.show();
         }
     }
 
     /**
-     * This class is an {@link AsyncTask} to export user lists.
+     * This class is an {@link AsyncTask} to export to a backup file.
      *
      * @author Bruce BUJON (bruce.bujon(at)gmail(dot)com)
      */
-    private static class ExportListsTask extends AsyncTask<Void, Void, Boolean> {
+    private static class ExportTask extends AsyncTask<Void, Void, Boolean> {
         /**
          * A weak reference to application context.
          */
@@ -234,7 +330,7 @@ public class ImportExportHelper {
          *
          * @param context The application context.
          */
-        private ExportListsTask(Context context) {
+        private ExportTask(Context context) {
             // Store context into weak reference to prevent memory leak
             this.mWeakContext = new WeakReference<>(context);
         }
@@ -247,43 +343,25 @@ public class ImportExportHelper {
                 // Fail to export
                 return false;
             }
-            // Get database
-            AppDatabase database = AppDatabase.getInstance(context);
-            HostListItemDao hostListItemDao = database.hostsListItemDao();
-            // Get list values
-            List<String> blacklist = hostListItemDao.getEnabledBlackListHosts();
-            List<String> whitelist = hostListItemDao.getEnabledWhiteListHosts();
-            Map<String, String> redirectionList = Stream.of(hostListItemDao.getEnabledRedirectList())
-                    .collect(Collectors.toMap(HostListItem::getHost, HostListItem::getRedirection));
             // Check if sdcard can be written
             File sdcard = Environment.getExternalStorageDirectory();
             if (!sdcard.canWrite()) {
-                Log.e(Constants.TAG, "External storage can not be written.");
+                Log.e(TAG, "External storage can not be written.");
                 // Fail to export
                 return false;
             }
             // Create export file
-            File exportFile = new File(sdcard, "adaway-export");
+            File exportFile = new File(sdcard, BACKUP_FILE_NAME);
             // Open writer on the export file
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(exportFile))) {
-                writer.write(Constants.HEADER_EXPORT + Constants.LINE_SEPARATOR);
-                // Write blacklist items
-                for (String aBlacklist : blacklist) {
-                    writer.write(Constants.LOCALHOST_IPv4 + " " + aBlacklist
-                            + Constants.LINE_SEPARATOR);
-                }
-                // Write whitelist items
-                for (String aWhitelist : whitelist) {
-                    writer.write(Constants.WHITELIST_ENTRY + " " + aWhitelist
-                            + Constants.LINE_SEPARATOR);
-                }
-                // Write redirect list items
-                for (HashMap.Entry<String, String> item : redirectionList.entrySet()) {
-                    writer.write(item.getValue() + " " + item.getKey()
-                            + Constants.LINE_SEPARATOR);
-                }
+                JSONObject backup = makeBackup(context);
+                writer.write(backup.toString(4));
+            } catch (JSONException exception) {
+                Log.e(TAG, "Failed to generate backup.", exception);
+                return false;
             } catch (IOException exception) {
-                Log.e(Constants.TAG, "Could not write file.", exception);
+                Log.e(TAG, "Could not write file.", exception);
+                return false;
             }
             // Return successfully exported
             return true;

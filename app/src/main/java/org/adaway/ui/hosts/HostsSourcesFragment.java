@@ -21,7 +21,11 @@
 package org.adaway.ui.hosts;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.Context;
+import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.view.ActionMode;
@@ -38,17 +42,32 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import org.adaway.R;
 import org.adaway.db.entity.HostsSource;
+import org.adaway.helper.ImportExportHelper;
+import org.adaway.ui.dialog.ActivityNotFoundDialogFragment;
 import org.adaway.ui.dialog.AlertDialogValidator;
 import org.adaway.ui.hostsinstall.HostsInstallSnackbar;
+import org.adaway.util.Constants;
+import org.adaway.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.ViewModelProviders;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
+
+import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
+import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
+import static android.app.Activity.RESULT_OK;
+import static android.content.Intent.ACTION_GET_CONTENT;
+import static android.content.Intent.CATEGORY_OPENABLE;
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+import static org.adaway.helper.ImportExportHelper.REQUEST_CODE_IMPORT;
+import static org.adaway.helper.ImportExportHelper.REQUEST_CODE_WRITE_STORAGE_PERMISSION;
 
 /**
  * This class is a {@link Fragment} to display and manage hosts sources.
@@ -81,10 +100,63 @@ public class HostsSourcesFragment extends Fragment implements HostsSourcesViewCa
      */
     private View mActionSourceView;
 
+    /**
+     * Ensure a permission is granted.<br>
+     * If the permission is not granted, a request is shown to user.
+     *
+     * @param permission The permission to check
+     * @return <code>true</code> if the permission is granted, <code>false</code> otherwise.
+     */
+    private boolean checkPermission(String permission) {
+        // Get application context
+        Context context = this.getContext();
+        if (context == null) {
+            // Return permission failed as no context to check
+            return false;
+        }
+        int permissionCheck = ContextCompat.checkSelfPermission(context, permission);
+        if (permissionCheck != PERMISSION_GRANTED) {
+            // Request write external storage permission
+            this.requestPermissions(
+                    new String[]{permission},
+                    REQUEST_CODE_WRITE_STORAGE_PERMISSION
+            );
+            // Return permission not granted yes
+            return false;
+        }
+        // Return permission granted
+        return true;
+    }
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        // Check permission request code
+        if (requestCode != REQUEST_CODE_WRITE_STORAGE_PERMISSION) {
+            return;
+        }
+        // Check results
+        if (grantResults.length == 0 || grantResults[0] != PERMISSION_GRANTED) {
+            return;
+        }
+        // Restart action according granted permission
+        switch (permissions[0]) {
+            case READ_EXTERNAL_STORAGE:
+                importFromBackup();
+                break;
+            case WRITE_EXTERNAL_STORAGE:
+                exportToBackup();
+                break;
+        }
+    }
+
+
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         // Store activity
         this.mActivity = this.getActivity();
+        this.setHasOptionsMenu(true);
         // Initialize view model
         this.mViewModel = ViewModelProviders.of(this).get(HostsSourcesViewModel.class);
         // Create fragment view
@@ -201,6 +273,86 @@ public class HostsSourcesFragment extends Fragment implements HostsSourcesViewCa
         this.mActionMode = this.mActivity.startActionMode(this.mActionCallback);
         // Return event consumed
         return true;
+    }
+
+
+    @Override
+    public void onCreateOptionsMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
+        inflater.inflate(R.menu.backup_menu, menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        // Check item identifier
+        switch (item.getItemId()) {
+            case R.id.menu_import:
+                // Check read storage permission
+                if (checkPermission(READ_EXTERNAL_STORAGE)) {
+                    importFromBackup();
+                }
+                return true;
+            case R.id.menu_export:
+                // Check write storage permission
+                if (checkPermission(WRITE_EXTERNAL_STORAGE)) {
+                    exportToBackup();
+                }
+                return true;
+            default:
+                // Delegate item selection
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        // Check request code
+        if (requestCode != REQUEST_CODE_IMPORT) {
+            return;
+        }
+        // Check result
+        if (resultCode != RESULT_OK) {
+            return;
+        }
+        // Check data
+        if (data != null && data.getData() != null) {
+            // Get selected file URI
+            Uri backupUri = data.getData();
+            Log.d(Constants.TAG, "Backup URI: " + backupUri.toString());
+            // Import user backup
+            ImportExportHelper.importFromBackup(this.getContext(), backupUri);
+        }
+    }
+
+    /**
+     * Import from a user backup.
+     */
+    private void importFromBackup() {
+        Intent intent = new Intent(ACTION_GET_CONTENT);
+        intent.setType("*/*");
+        intent.addCategory(CATEGORY_OPENABLE);
+        // Start file picker activity
+        try {
+            startActivityForResult(intent, REQUEST_CODE_IMPORT);
+        } catch (ActivityNotFoundException exception) {
+            // Show dialog to install file picker
+            FragmentManager fragmentManager = getFragmentManager();
+            if (fragmentManager != null) {
+                ActivityNotFoundDialogFragment.newInstance(
+                        R.string.no_file_manager_title,
+                        R.string.no_file_manager,
+                        "market://details?id=org.openintents.filemanager",
+                        "OI File Manager"
+                ).show(fragmentManager, "notFoundDialog");
+            }
+        }
+    }
+
+    /**
+     * Exports to a user backup.
+     */
+    private void exportToBackup() {
+        ImportExportHelper.exportToBackup(this.mActivity);
     }
 
     /**
